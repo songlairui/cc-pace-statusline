@@ -1,5 +1,7 @@
 # cc-pace-statusline
 
+> English: [README.md](./README.md)
+
 一个克制的 [Claude Code](https://claude.ai/code) statusLine 配置——只占一行，给速率限制进度条加了一根**配速标记**（pace marker），把"用了多少"变成"和时间比谁更快"。
 
 ```

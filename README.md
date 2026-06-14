@@ -1,5 +1,7 @@
 # cc-pace-statusline
 
+> 中文版：[README_zh.md](./README_zh.md)
+
 A restrained, single-line status line for [Claude Code](https://claude.ai/code) — with a **pace marker** that turns your rate-limit bars into a live "am I ahead or behind on time?" gauge.
 
 ```
