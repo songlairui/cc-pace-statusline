@@ -91,8 +91,11 @@ const MAX_PALETTE = [
 ];
 const MAX_GLYPHS = ['◆', '◈', '◇', '◈'];
 
-function maxSignature(now) {
-  if ((process.env.CC_PACE_TIER || '').toLowerCase() !== 'max') return null;
+const TOP_TIER_MODELS = /\b(opus|fable)\b/i;
+
+function maxSignature(now, modelId, modelName) {
+  const id = (modelId || '') + ' ' + (modelName || '');
+  if (!TOP_TIER_MODELS.test(id)) return null;
   const glyph = MAX_GLYPHS[Math.floor(now / 2) % MAX_GLYPHS.length];
   const color = MAX_PALETTE[Math.floor(now / 3) % MAX_PALETTE.length];
   return fg(color) + BOLD + glyph + RESET;
@@ -133,7 +136,7 @@ function render(d) {
   const sdSeg = renderRateSegment('7d', d.rate_limits?.seven_day, SEVEN_D_SECONDS, 7, now);
   if (sdSeg) parts.push(sdSeg);
 
-  const sig = maxSignature(now);
+  const sig = maxSignature(now, d.model?.id, d.model?.display_name);
   const body = parts.join('   ');
   return sig ? sig + ' ' + body : body;
 }
