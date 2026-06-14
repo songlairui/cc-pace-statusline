@@ -79,6 +79,25 @@ function markerIndex(elapsedRatio, cells) {
   return Math.max(0, Math.min(cells - 1, i));
 }
 
+const MAX_PALETTE = [
+  [220, 230, 245],
+  [180, 215, 240],
+  [190, 200, 245],
+  [210, 195, 240],
+  [235, 205, 225],
+  [245, 220, 195],
+  [235, 230, 210],
+  [215, 230, 220],
+];
+const MAX_GLYPHS = ['◆', '◈', '◇', '◈'];
+
+function maxSignature(now) {
+  if ((process.env.CC_PACE_TIER || '').toLowerCase() !== 'max') return null;
+  const glyph = MAX_GLYPHS[Math.floor(now / 2) % MAX_GLYPHS.length];
+  const color = MAX_PALETTE[Math.floor(now / 3) % MAX_PALETTE.length];
+  return fg(color) + BOLD + glyph + RESET;
+}
+
 function renderRateSegment(label, raw, windowSeconds, cells, now) {
   if (raw?.used_percentage == null) return null;
   const pct = Math.floor(raw.used_percentage);
@@ -114,5 +133,7 @@ function render(d) {
   const sdSeg = renderRateSegment('7d', d.rate_limits?.seven_day, SEVEN_D_SECONDS, 7, now);
   if (sdSeg) parts.push(sdSeg);
 
-  return parts.join('   ');
+  const sig = maxSignature(now);
+  const body = parts.join('   ');
+  return sig ? sig + ' ' + body : body;
 }
