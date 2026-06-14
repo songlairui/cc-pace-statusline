@@ -13,8 +13,9 @@ The point isn't "look at all the options." The point is to **stress-test our own
 Restated here so the arena has a clean baseline to compare against:
 
 - **One line. No emoji. No git, cwd, cost, duration.**
-- **Three signals only:** ctx, 5h rate limit, 7d rate limit (conditional).
-- **Pace marker** `│` on rate-limit bars — the differentiator.
+- **Three signals only:** ctx, 5h rate limit, 7d rate limit (always-on; no hidden gating rules).
+- **Pace marker** that changes glyph and color when usage crosses the time-pace line — the marker *is* the ahead/behind signal.
+- **Floyd–Steinberg dithered bars** (`░▒▓█`, 4 levels) so 5 cells carry ~1% precision instead of 20% jumps.
 - **Depth over breadth:** one direction, drilled deep.
 
 If an entrant beats us *inside* this scope (e.g. a sharper rendering of the same three signals), we lose and copy. If an entrant offers a feature outside this scope, we note *why we chose not to* with the counter-evidence ready.

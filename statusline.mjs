@@ -13,12 +13,24 @@ const BOLD = '\x1b[1m';
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
 const RED = '\x1b[31m';
-const DIM_CYAN = '\x1b[2;36m';
-const MARKER = '\x1b[1;92m';
+const BRIGHT_GREEN = '\x1b[1;92m';
+const BRIGHT_MAGENTA = '\x1b[1;95m';
 
-const SEVEN_D_THRESHOLD_PP = 20;
 const FIVE_H_SECONDS = 5 * 3600;
 const SEVEN_D_SECONDS = 7 * 86400;
+
+const DITHER_LEVELS = [0, 1 / 3, 2 / 3, 1];
+const DITHER_CHARS = ['░', '▒', '▓', '█'];
+
+function quantize(value) {
+  let best = 0;
+  let bestDelta = Math.abs(value - DITHER_LEVELS[0]);
+  for (let i = 1; i < DITHER_LEVELS.length; i++) {
+    const d = Math.abs(value - DITHER_LEVELS[i]);
+    if (d < bestDelta) { bestDelta = d; best = i; }
+  }
+  return best;
+}
 
 function colorFor(pct, [greenMax, yellowMax]) {
   if (pct < greenMax) return GREEN;
@@ -26,14 +38,20 @@ function colorFor(pct, [greenMax, yellowMax]) {
   return RED;
 }
 
-function bar(pct, cells, markerIdx, color) {
-  const filled = Math.round((pct / 100) * cells);
-  let out = color;
+function bar(pct, cells, markerIdx, markerAhead, barColor) {
+  const target = Math.max(0, Math.min(1, pct / 100));
+  let error = 0;
+  let out = barColor;
   for (let i = 0; i < cells; i++) {
+    const desired = target + error;
+    const q = quantize(desired);
+    error = desired - DITHER_LEVELS[q];
     if (i === markerIdx) {
-      out += RESET + MARKER + '│' + RESET + color;
+      const glyph = markerAhead ? '┃' : '│';
+      const color = markerAhead ? BRIGHT_MAGENTA : BRIGHT_GREEN;
+      out += RESET + color + glyph + RESET + barColor;
     } else {
-      out += i < filled ? '▓' : '░';
+      out += DITHER_CHARS[q];
     }
   }
   return out + RESET;
@@ -45,6 +63,20 @@ function markerIndex(elapsedRatio, cells) {
   return Math.max(0, Math.min(cells - 1, i));
 }
 
+function renderRateSegment(label, raw, windowSeconds, cells, now) {
+  if (raw?.used_percentage == null) return null;
+  const pct = Math.floor(raw.used_percentage);
+  const color = colorFor(pct, [50, 80]);
+  let markerIdx, ahead = false;
+  if (raw.resets_at) {
+    const elapsed = 1 - (raw.resets_at - now) / windowSeconds;
+    markerIdx = markerIndex(elapsed, cells);
+    const elapsedPct = Math.max(0, Math.min(1, elapsed)) * 100;
+    ahead = pct > elapsedPct;
+  }
+  return label + ' ' + bar(pct, cells, markerIdx, ahead, color) + ' ' + pct + '%';
+}
+
 function render(d) {
   const parts = [];
 
@@ -54,41 +86,17 @@ function render(d) {
 
   const ctxPct = Math.floor(d.context_window?.used_percentage ?? 0);
   const ctxColor = colorFor(ctxPct, [60, 85]);
-  let ctxSeg = 'ctx ' + bar(ctxPct, 5, undefined, ctxColor) + ' ' + ctxPct + '%';
+  let ctxSeg = 'ctx ' + bar(ctxPct, 5, undefined, false, ctxColor) + ' ' + ctxPct + '%';
   if (d.exceeds_200k_tokens) ctxSeg += ' ' + RED + BOLD + '!200k' + RESET;
   parts.push(ctxSeg);
 
   const now = Date.now() / 1000;
 
-  const fh = d.rate_limits?.five_hour;
-  if (fh?.used_percentage != null) {
-    const pct = Math.floor(fh.used_percentage);
-    const color = colorFor(pct, [50, 80]);
-    let markerIdx;
-    if (fh.resets_at) {
-      const elapsed = 1 - (fh.resets_at - now) / FIVE_H_SECONDS;
-      markerIdx = markerIndex(elapsed, 5);
-    }
-    parts.push('5h ' + bar(pct, 5, markerIdx, color) + ' ' + pct + '%');
-  }
+  const fhSeg = renderRateSegment('5h', d.rate_limits?.five_hour, FIVE_H_SECONDS, 5, now);
+  if (fhSeg) parts.push(fhSeg);
 
-  const sd = d.rate_limits?.seven_day;
-  if (sd?.used_percentage != null && sd.resets_at) {
-    const pct = sd.used_percentage;
-    const elapsed = 1 - (sd.resets_at - now) / SEVEN_D_SECONDS;
-    const expected = Math.max(0, Math.min(1, elapsed)) * 100;
-    const deviation = pct - expected;
-    if (Math.abs(deviation) >= SEVEN_D_THRESHOLD_PP) {
-      const ahead = deviation > 0;
-      const color = ahead ? RED : DIM_CYAN;
-      const prefix = ahead ? '7d!' : '7d·';
-      const markerIdx = markerIndex(elapsed, 7);
-      const sign = ahead ? '+' : '−';
-      const devStr = sign + Math.round(Math.abs(deviation)) + 'pp';
-      const pctInt = Math.floor(pct);
-      parts.push(color + prefix + RESET + ' ' + bar(pctInt, 7, markerIdx, color) + ' ' + pctInt + '% ' + color + devStr + RESET);
-    }
-  }
+  const sdSeg = renderRateSegment('7d', d.rate_limits?.seven_day, SEVEN_D_SECONDS, 7, now);
+  if (sdSeg) parts.push(sdSeg);
 
   return parts.join('   ');
 }
