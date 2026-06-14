@@ -8,19 +8,21 @@ A restrained, single-line status line for [Claude Code](https://claude.ai/code).
 2. **Floyd–Steinberg dithering** on the bars themselves, so 5 cells can represent percentage at ~1% precision instead of 20%-step jumps.
 
 ```
-Opus·high   ctx ▒▒▒░▒ 28%   5h ▒░▒│░ 23%   7d ░▒░░│░░ 10%
+Opus·high   ctx ░░░░▒ 28%   5h ░░░│░ 23%   7d ░░░░│░░ 25%
                                   ↑                ↑
                            5h is 3h in,      7d is day 4 of 7,
-                           usage at 23%      usage at 10%, marker
-                           is behind pace    far past it — relaxed
+                           usage at 23%      usage at 25%, marker
+                           is behind pace    is past pace — relaxed
                            — thin green │
 ```
 
 When usage races past the pace line, the marker flips to a heavy magenta `┃`:
 
 ```
-Opus·high   ctx █▓██▓ 88% !200k   5h ▓█▓┃▓ 82%   7d █▓██┃▓█ 90%
+Opus·high   ctx █▓█▓█ 88% !200k   5h ▓█▓▓┃ 82%   7d █▓█▓┃█▓ 90%
 ```
+
+(In the terminal each bar sits on a dim gray background, so cells whose dither value lands at zero stay visible as gray slots rather than disappearing.)
 
 So the marker itself is the alert. You don't have to compare positions of fill-edge and marker — the marker color/weight already says "you're past pace."
 
@@ -44,15 +46,20 @@ The decision is `usage_pct > elapsed_pct`. The marker carries this signal regard
 
 ### The bar texture is dithering, not noise
 
-Each cell renders one of four shade levels — `░ ▒ ▓ █` — chosen by **1D Floyd–Steinberg error diffusion**. The bar's average density across 5 cells matches the true percentage at the granularity of the palette, so a 28% bar reads as `▒▒▒░▒` rather than `▓░░░░` (which would have rounded to 20%). Different percentages produce visually distinct textures:
+Each cell renders one of five density levels — `' ', ░, ▒, ▓, █` — chosen by **1D Floyd–Steinberg error diffusion**. Crucially, the levels match the *perceived* darkness of each glyph (`░` already reads as ~25% dark, not ~33%), so the bar's average density actually corresponds to the true percentage rather than overshooting. Different percentages produce visually distinct textures:
 
 ```
- 5%   ░░░▒░             50%   ▓▒▓▓▒             95%   ████▓
-12%   ░▒░░▒             55%   ▓▒▓▓▒             88%   █▓██▓
-28%   ▒▒▒░▒             67%   ▓▓▓▒▓
+ 5%   [    ░    ]    50%   [  ▒▒▒▒▒  ]
+12%   [   ░ ░   ]    67%   [  ▓▒▓▓▒  ]
+20%   [  ░░ ░░  ]    75%   [  ▓▓▓▓▓  ]
+28%   [  ░░░░▒  ]    88%   [  █▓█▓█  ]
+35%   [  ░▒░▒░  ]    95%   [  ██▓██  ]
+44%   [  ▒▒░▒▒  ]   100%   [  █████  ]
 ```
 
-Useful side-effect: small percentage changes shift the texture noticeably, where naive rendering would feel frozen until the next 20% jump.
+(Brackets here are documentation only — in the terminal the bar is wrapped in a dim gray background, so empty cells stay visible as slots.)
+
+Side-effect: small percentage changes shift the texture noticeably. A naive binary bar would stay frozen between 20% jumps; here every percentage point displaces the pattern.
 
 ### Why 7d is always on
 
@@ -98,20 +105,20 @@ Settings reload automatically; the change shows up at your next interaction with
 
 | Segment | Bar palette | Green band | Yellow band | Red band |
 | --- | --- | --- | --- | --- |
-| `ctx` | dithered `░▒▓█` | < 60% | 60–84% | ≥ 85% |
-| `5h` | dithered `░▒▓█` | < 50% | 50–79% | ≥ 80% |
-| `7d` | dithered `░▒▓█` | < 50% | 50–79% | ≥ 80% |
+| `ctx` | dithered `' '░▒▓█` on dim gray bg | < 60% | 60–84% | ≥ 85% |
+| `5h` | dithered `' '░▒▓█` on dim gray bg | < 50% | 50–79% | ≥ 80% |
+| `7d` | dithered `' '░▒▓█` on dim gray bg | < 50% | 50–79% | ≥ 80% |
 | `!200k` | — | — | — | always red |
 
-Pace marker color is independent of the bar palette: bright green for behind, bright magenta for ahead. This keeps it readable against any threshold tier.
+Pace marker color is independent of the bar palette: bright green for behind, bright magenta for ahead. This keeps it readable against any threshold tier and against the gray bar background.
 
 ## Tuning
 
 ```js
 const FIVE_H_SECONDS = 5 * 3600;
 const SEVEN_D_SECONDS = 7 * 86400;
-const DITHER_LEVELS = [0, 1/3, 2/3, 1];
-const DITHER_CHARS = ['░', '▒', '▓', '█'];
+const DITHER_LEVELS = [0, 0.25, 0.5, 0.75, 1];
+const DITHER_CHARS = [' ', '░', '▒', '▓', '█'];
 ```
 
 Color thresholds are inline in the segment renderers — `[60, 85]` for ctx, `[50, 80]` for 5h and 7d. Edit as you like.

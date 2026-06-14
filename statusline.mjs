@@ -13,14 +13,15 @@ const BOLD = '\x1b[1m';
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
 const RED = '\x1b[31m';
-const BRIGHT_GREEN = '\x1b[1;92m';
-const BRIGHT_MAGENTA = '\x1b[1;95m';
+const MARKER_BEHIND = '\x1b[92m';
+const MARKER_AHEAD = '\x1b[95m';
+const BG_DIM = '\x1b[100m';
 
 const FIVE_H_SECONDS = 5 * 3600;
 const SEVEN_D_SECONDS = 7 * 86400;
 
-const DITHER_LEVELS = [0, 1 / 3, 2 / 3, 1];
-const DITHER_CHARS = ['░', '▒', '▓', '█'];
+const DITHER_LEVELS = [0, 0.25, 0.5, 0.75, 1];
+const DITHER_CHARS = [' ', '░', '▒', '▓', '█'];
 
 function quantize(value) {
   let best = 0;
@@ -41,15 +42,15 @@ function colorFor(pct, [greenMax, yellowMax]) {
 function bar(pct, cells, markerIdx, markerAhead, barColor) {
   const target = Math.max(0, Math.min(1, pct / 100));
   let error = 0;
-  let out = barColor;
+  let out = BG_DIM + barColor;
   for (let i = 0; i < cells; i++) {
     const desired = target + error;
     const q = quantize(desired);
     error = desired - DITHER_LEVELS[q];
     if (i === markerIdx) {
       const glyph = markerAhead ? '┃' : '│';
-      const color = markerAhead ? BRIGHT_MAGENTA : BRIGHT_GREEN;
-      out += RESET + color + glyph + RESET + barColor;
+      const color = markerAhead ? MARKER_AHEAD : MARKER_BEHIND;
+      out += color + glyph + barColor;
     } else {
       out += DITHER_CHARS[q];
     }
