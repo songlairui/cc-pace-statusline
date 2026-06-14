@@ -15,7 +15,7 @@ Restated here so the arena has a clean baseline to compare against:
 - **One line. No emoji. No git, cwd, cost, duration.**
 - **Three signals only:** ctx, 5h rate limit, 7d rate limit (always-on; no hidden gating rules).
 - **Pace marker** that changes glyph and color when usage crosses the time-pace line — the marker *is* the ahead/behind signal.
-- **Floyd–Steinberg dithered bars** (`░▒▓█`, 4 levels) so 5 cells carry ~1% precision instead of 20% jumps.
+- **Boundary-cell color interpolation** — sub-cell precision from a single gradient cell at the bar's leading edge, with the rest of the bar staying as clean solid color blocks. (F-S dithering was tried and dropped — visible noise at 5-cell resolution.)
 - **Depth over breadth:** one direction, drilled deep.
 
 If an entrant beats us *inside* this scope (e.g. a sharper rendering of the same three signals), we lose and copy. If an entrant offers a feature outside this scope, we note *why we chose not to* with the counter-evidence ready.

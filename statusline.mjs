@@ -10,49 +10,64 @@ process.stdin.on('end', () => {
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
-const GREEN = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const RED = '\x1b[31m';
-const MARKER_BEHIND = '\x1b[92m';
-const MARKER_AHEAD = '\x1b[95m';
-const BG_DIM = '\x1b[100m';
+
+const BG_GRAY = [60, 60, 60];
+const WHITE = [240, 240, 240];
+const BAR_GREEN = [60, 180, 80];
+const BAR_YELLOW = [220, 180, 30];
+const BAR_RED = [220, 70, 70];
+const MARKER_BEHIND = [80, 255, 120];
+const MARKER_AHEAD = [255, 100, 255];
+const ALERT_RED = [255, 80, 80];
 
 const FIVE_H_SECONDS = 5 * 3600;
 const SEVEN_D_SECONDS = 7 * 86400;
 
-const DITHER_LEVELS = [0, 0.25, 0.5, 0.75, 1];
-const DITHER_CHARS = [' ', '░', '▒', '▓', '█'];
-
-function quantize(value) {
-  let best = 0;
-  let bestDelta = Math.abs(value - DITHER_LEVELS[0]);
-  for (let i = 1; i < DITHER_LEVELS.length; i++) {
-    const d = Math.abs(value - DITHER_LEVELS[i]);
-    if (d < bestDelta) { bestDelta = d; best = i; }
-  }
-  return best;
+function fg([r, g, b]) { return `\x1b[38;2;${r};${g};${b}m`; }
+function bgc([r, g, b]) { return `\x1b[48;2;${r};${g};${b}m`; }
+function mix([r1, g1, b1], [r2, g2, b2], t) {
+  return [
+    Math.round(r1 + (r2 - r1) * t),
+    Math.round(g1 + (g2 - g1) * t),
+    Math.round(b1 + (b2 - b1) * t),
+  ];
 }
 
-function colorFor(pct, [greenMax, yellowMax]) {
-  if (pct < greenMax) return GREEN;
-  if (pct < yellowMax) return YELLOW;
-  return RED;
+function barColorFor(pct, [greenMax, yellowMax]) {
+  if (pct < greenMax) return BAR_GREEN;
+  if (pct < yellowMax) return BAR_YELLOW;
+  return BAR_RED;
 }
 
-function bar(pct, cells, markerIdx, markerAhead, barColor) {
-  const target = Math.max(0, Math.min(1, pct / 100));
-  let error = 0;
-  let out = BG_DIM + barColor;
+function bar(pct, cells, markerIdx, markerAhead, barFill) {
+  const filledF = Math.max(0, Math.min(cells, (pct / 100) * cells));
+  const fullCount = Math.floor(filledF);
+  const fraction = filledF - fullCount;
+  const markerColor = markerAhead ? MARKER_AHEAD : MARKER_BEHIND;
+  const markerGlyph = markerAhead ? '┃' : '│';
+
+  let out = '';
   for (let i = 0; i < cells; i++) {
-    const desired = target + error;
-    const q = quantize(desired);
-    error = desired - DITHER_LEVELS[q];
-    if (i === markerIdx) {
-      const glyph = markerAhead ? '┃' : '│';
-      const color = markerAhead ? MARKER_AHEAD : MARKER_BEHIND;
-      out += color + glyph + barColor;
+    const isMarker = i === markerIdx;
+    const isBoundary = i === fullCount && fraction > 0;
+
+    let cellBg;
+    if (isMarker && isBoundary) {
+      cellBg = mix(BG_GRAY, markerColor, fraction);
+    } else if (i < fullCount) {
+      cellBg = barFill;
+    } else if (isBoundary) {
+      cellBg = mix(BG_GRAY, barFill, fraction);
     } else {
-      out += DITHER_CHARS[q];
+      cellBg = BG_GRAY;
+    }
+
+    out += bgc(cellBg);
+    if (isMarker) {
+      const glyphColor = isBoundary ? WHITE : markerColor;
+      out += fg(glyphColor) + markerGlyph;
+    } else {
+      out += ' ';
     }
   }
   return out + RESET;
@@ -67,7 +82,7 @@ function markerIndex(elapsedRatio, cells) {
 function renderRateSegment(label, raw, windowSeconds, cells, now) {
   if (raw?.used_percentage == null) return null;
   const pct = Math.floor(raw.used_percentage);
-  const color = colorFor(pct, [50, 80]);
+  const fill = barColorFor(pct, [50, 80]);
   let markerIdx, ahead = false;
   if (raw.resets_at) {
     const elapsed = 1 - (raw.resets_at - now) / windowSeconds;
@@ -75,7 +90,7 @@ function renderRateSegment(label, raw, windowSeconds, cells, now) {
     const elapsedPct = Math.max(0, Math.min(1, elapsed)) * 100;
     ahead = pct > elapsedPct;
   }
-  return label + ' ' + bar(pct, cells, markerIdx, ahead, color) + ' ' + pct + '%';
+  return label + ' ' + bar(pct, cells, markerIdx, ahead, fill) + ' ' + pct + '%';
 }
 
 function render(d) {
@@ -86,9 +101,9 @@ function render(d) {
   parts.push(BOLD + model + RESET + (effort ? '·' + effort : ''));
 
   const ctxPct = Math.floor(d.context_window?.used_percentage ?? 0);
-  const ctxColor = colorFor(ctxPct, [60, 85]);
-  let ctxSeg = 'ctx ' + bar(ctxPct, 5, undefined, false, ctxColor) + ' ' + ctxPct + '%';
-  if (d.exceeds_200k_tokens) ctxSeg += ' ' + RED + BOLD + '!200k' + RESET;
+  const ctxFill = barColorFor(ctxPct, [60, 85]);
+  let ctxSeg = 'ctx ' + bar(ctxPct, 5, undefined, false, ctxFill) + ' ' + ctxPct + '%';
+  if (d.exceeds_200k_tokens) ctxSeg += ' ' + fg(ALERT_RED) + BOLD + '!200k' + RESET;
   parts.push(ctxSeg);
 
   const now = Date.now() / 1000;
