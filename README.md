@@ -111,6 +111,11 @@ These were considered and cut. They're easy to add back if you fork.
 
 The bias: a status line earns its place by showing things you'd otherwise have to remember to check.
 
+## Discuss
+
+- Twitter / X: <https://x.com/songlairui/status/2066161137000034570>
+- Weibo: <https://weibo.com/1770160121/R47P6jQS4>
+
 ## License
 
 MIT.

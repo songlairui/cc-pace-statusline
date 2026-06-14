@@ -111,6 +111,11 @@ const SEVEN_D_SECONDS = 7 * 86400;
 
 原则：statusLine 的位置很贵，只配显示"你本来要主动去查才能知道的信息"。
 
+## 一起聊
+
+- Twitter / X：<https://x.com/songlairui/status/2066161137000034570>
+- 微博：<https://weibo.com/1770160121/R47P6jQS4>
+
 ## License
 
 MIT.
