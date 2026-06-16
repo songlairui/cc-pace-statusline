@@ -15,10 +15,12 @@ const BG_GRAY = [60, 60, 60];
 const WHITE = [240, 240, 240];
 const BAR_GREEN = [60, 180, 80];
 const BAR_YELLOW = [220, 180, 30];
+const BAR_AMBER = [230, 130, 40];
 const BAR_RED = [220, 70, 70];
 const MARKER_BEHIND = [80, 255, 120];
 const MARKER_AHEAD = [255, 100, 255];
 const ALERT_RED = [255, 80, 80];
+const IDLE_HINT = [200, 200, 100];
 
 const FIVE_H_SECONDS = 5 * 3600;
 const SEVEN_D_SECONDS = 7 * 86400;
@@ -43,9 +45,15 @@ function paceColor(pct, elapsedPct) {
   if (pct >= 95) return BAR_RED;
   if (elapsedPct == null) return barColorFor(pct, [50, 80]);
   const lead = pct - elapsedPct;
-  if (lead < 10) return BAR_GREEN;
-  if (lead < 25) return BAR_YELLOW;
-  return BAR_RED;
+  if (lead >= 40) return BAR_RED;
+  if (lead >= 25) return BAR_AMBER;
+  if (lead >= 10) return BAR_YELLOW;
+  if (elapsedPct >= 40) {
+    if (lead <= -40) return BAR_RED;
+    if (lead <= -25) return BAR_AMBER;
+    if (lead <= -10) return BAR_YELLOW;
+  }
+  return BAR_GREEN;
 }
 
 function bar(pct, cells, markerIdx, markerAhead, barFill) {
@@ -110,7 +118,7 @@ function maxSignature(now, modelId, modelName) {
   return fg(color) + BOLD + glyph + RESET;
 }
 
-function renderRateSegment(label, raw, windowSeconds, cells, now) {
+function renderRateSegment(label, raw, windowSeconds, cells, now, opts = {}) {
   if (raw?.used_percentage == null) return null;
   const pct = Math.floor(raw.used_percentage);
   let markerIdx, ahead = false, elapsedPct = null;
@@ -120,8 +128,11 @@ function renderRateSegment(label, raw, windowSeconds, cells, now) {
     elapsedPct = Math.max(0, Math.min(1, elapsed)) * 100;
     ahead = pct > elapsedPct;
   }
-  const fill = paceColor(pct, elapsedPct);
-  return label + ' ' + bar(pct, cells, markerIdx, ahead, fill) + ' ' + pct + '%';
+  const fill = opts.pace ? paceColor(pct, elapsedPct) : barColorFor(pct, [50, 80]);
+  const idle = elapsedPct == null && opts.idleGlyph
+    ? fg(IDLE_HINT) + BOLD + opts.idleGlyph + RESET + ' '
+    : '';
+  return label + ' ' + idle + bar(pct, cells, markerIdx, ahead, fill) + ' ' + pct + '%';
 }
 
 function render(d) {
@@ -139,10 +150,10 @@ function render(d) {
 
   const now = Date.now() / 1000;
 
-  const fhSeg = renderRateSegment('5h', d.rate_limits?.five_hour, FIVE_H_SECONDS, 5, now);
+  const fhSeg = renderRateSegment('5h', d.rate_limits?.five_hour, FIVE_H_SECONDS, 5, now, { idleGlyph: '▷' });
   if (fhSeg) parts.push(fhSeg);
 
-  const sdSeg = renderRateSegment('7d', d.rate_limits?.seven_day, SEVEN_D_SECONDS, 7, now);
+  const sdSeg = renderRateSegment('7d', d.rate_limits?.seven_day, SEVEN_D_SECONDS, 7, now, { pace: true });
   if (sdSeg) parts.push(sdSeg);
 
   const sig = maxSignature(now, d.model?.id, d.model?.display_name);
