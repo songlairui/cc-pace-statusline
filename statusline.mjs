@@ -39,6 +39,15 @@ function barColorFor(pct, [greenMax, yellowMax]) {
   return BAR_RED;
 }
 
+function paceColor(pct, elapsedPct) {
+  if (pct >= 95) return BAR_RED;
+  if (elapsedPct == null) return barColorFor(pct, [50, 80]);
+  const lead = pct - elapsedPct;
+  if (lead < 10) return BAR_GREEN;
+  if (lead < 25) return BAR_YELLOW;
+  return BAR_RED;
+}
+
 function bar(pct, cells, markerIdx, markerAhead, barFill) {
   const filledF = Math.max(0, Math.min(cells, (pct / 100) * cells));
   const fullCount = Math.floor(filledF);
@@ -104,14 +113,14 @@ function maxSignature(now, modelId, modelName) {
 function renderRateSegment(label, raw, windowSeconds, cells, now) {
   if (raw?.used_percentage == null) return null;
   const pct = Math.floor(raw.used_percentage);
-  const fill = barColorFor(pct, [50, 80]);
-  let markerIdx, ahead = false;
+  let markerIdx, ahead = false, elapsedPct = null;
   if (raw.resets_at) {
     const elapsed = 1 - (raw.resets_at - now) / windowSeconds;
     markerIdx = markerIndex(elapsed, cells);
-    const elapsedPct = Math.max(0, Math.min(1, elapsed)) * 100;
+    elapsedPct = Math.max(0, Math.min(1, elapsed)) * 100;
     ahead = pct > elapsedPct;
   }
+  const fill = paceColor(pct, elapsedPct);
   return label + ' ' + bar(pct, cells, markerIdx, ahead, fill) + ' ' + pct + '%';
 }
 
